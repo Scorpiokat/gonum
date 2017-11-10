@@ -114,7 +114,7 @@ func NewSymNormLaplacian(g graph.Undirected) Laplacian {
 // simple graph g.
 // The Laplacian is defined by I-D^(-1)A where D is a diagonal matrix holding the
 // degree of each node and A is the graph adjacency matrix of the input graph.
-func NewRandomWalkLaplacian(g graph.Graph) Laplacian {
+func NewRandomWalkLaplacian(g graph.Graph, damp float64) Laplacian {
 	nodes := g.Nodes()
 	indexOf := make(map[int64]int, len(nodes))
 	for i, n := range nodes {
@@ -123,14 +123,14 @@ func NewRandomWalkLaplacian(g graph.Graph) Laplacian {
 	}
 
 	l := mat.NewDense(len(nodes), len(nodes), nil)
-	for i, u := range nodes {
+	for j, u := range nodes {
 		to := g.From(u)
 		if len(to) != 0 {
-			l.Set(i, i, 1)
+			l.Set(j, j, 1-damp)
 		}
-		rudeg := -1 / float64(len(to))
+		rudeg := (damp - 1) / float64(len(to))
 		for _, v := range to {
-			l.Set(i, indexOf[v.ID()], rudeg)
+			l.Set(indexOf[v.ID()], j, rudeg)
 		}
 	}
 
