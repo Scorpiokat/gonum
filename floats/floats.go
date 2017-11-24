@@ -337,7 +337,6 @@ func EqualLengths(slices ...[]float64) bool {
 // all of the found elements will be returned along with an error.
 // At the return of the function, the input inds will be in an undetermined state.
 func Find(inds []int, f func(float64) bool, s []float64, k int) ([]int, error) {
-
 	// inds is also returned to allow for calling with nil
 
 	// Reslice inds to have zero length
@@ -488,6 +487,29 @@ func MulTo(dst, s, t []float64) []float64 {
 		dst[i] = val * s[i]
 	}
 	return dst
+}
+
+const (
+	nanBits = 0x7ff8000000000000
+	nanMask = 0xfff8000000000000
+)
+
+// NaNWith returns an IEEE 754 "quiet not-a-number" value with the
+// payload specified in the low 51 bits of payload.
+// The NaN returned by math.NaN has a bit pattern equal to NaNWith(1).
+func NaNWith(payload uint64) float64 {
+	return math.Float64frombits(nanBits | (payload &^ nanMask))
+}
+
+// NaNPayload returns the lowest 51 bits payload of an IEEE 754 "quiet
+// not-a-number". For values of f other than quiet-NaN, NaNPayload
+// returns zero and false.
+func NaNPayload(f float64) (payload uint64, ok bool) {
+	b := math.Float64bits(f)
+	if b&nanBits != nanBits {
+		return 0, false
+	}
+	return b &^ nanMask, true
 }
 
 // Nearest returns the index of the element in s

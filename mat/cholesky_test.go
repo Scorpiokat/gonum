@@ -6,8 +6,9 @@ package mat
 
 import (
 	"math"
-	"math/rand"
 	"testing"
+
+	"golang.org/x/exp/rand"
 
 	"gonum.org/v1/gonum/blas/testblas"
 	"gonum.org/v1/gonum/floats"
@@ -418,6 +419,67 @@ func TestCholeskySymRankOne(t *testing.T) {
 		if !EqualApprox(&achol, a, 1e-13) {
 			t.Errorf("Case %v: mismatch between updated matrix and from Cholesky:\nupdated:\n%v\nfrom Cholesky:\n%v",
 				i, Formatted(a), Formatted(&achol))
+		}
+	}
+}
+
+func TestCholeskyExtendVecSym(t *testing.T) {
+	for cas, test := range []struct {
+		a *SymDense
+	}{
+		{
+			a: NewSymDense(3, []float64{
+				4, 1, 1,
+				0, 2, 3,
+				0, 0, 6,
+			}),
+		},
+	} {
+		n := test.a.Symmetric()
+		as := test.a.SliceSquare(0, n-1).(*SymDense)
+
+		// Compute the full factorization to use later (do the full factorization
+		// first to ensure the matrix is positive definite).
+		var cholFull Cholesky
+		ok := cholFull.Factorize(test.a)
+		if !ok {
+			panic("mat: bad test, matrix not positive definite")
+		}
+
+		var chol Cholesky
+		ok = chol.Factorize(as)
+		if !ok {
+			panic("mat: bad test, subset is not positive definite")
+		}
+		row := NewVecDense(n, nil)
+		for i := 0; i < n; i++ {
+			row.SetVec(i, test.a.At(n-1, i))
+		}
+
+		var cholNew Cholesky
+		ok = cholNew.ExtendVecSym(&chol, row)
+		if !ok {
+			t.Errorf("cas %v: update not positive definite", cas)
+		}
+		a := cholNew.ToSym(nil)
+		if !EqualApprox(a, test.a, 1e-12) {
+			t.Errorf("cas %v: mismatch", cas)
+		}
+
+		// test in-place
+		ok = chol.ExtendVecSym(&chol, row)
+		if !ok {
+			t.Errorf("cas %v: in-place update not positive definite", cas)
+		}
+		if !equalChol(&chol, &cholNew) {
+			t.Errorf("cas %v: Cholesky different in-place vs. new", cas)
+		}
+
+		// Test that the factorization is about right compared with the direct
+		// full factorization. Use a high tolerance on the condition number
+		// since the condition number with the updated rule is approximate.
+		if !equalApproxChol(&chol, &cholFull, 1e-12, 0.3) {
+			t.Errorf("cas %v: updated Cholesky does not match full", cas)
 		}
 	}
 }
